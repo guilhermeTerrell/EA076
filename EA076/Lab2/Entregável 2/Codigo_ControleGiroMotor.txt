@@ -1,0 +1,156 @@
+// Wellter Mompean Sozin - 188625
+// Guilherme Augusto Amorim Terrell - 168899
+
+#define pinEntrada1PonteH 3
+#define pinEntrada2PonteH 7
+#define pinPWM 9
+#define pinEncoder 2
+#define valorMaximoPWM 254
+
+/*Para fins de simução a velocidade começa em 100 e o estadoMotor começa em 1*/
+int velocidadeMotorPWM = 100;
+int estadoMotor = 1; /*0 -> motor parado; 1 -> ventilador; 2 -> exaustor; 3 -> freio*/
+String comandoExecut = "";
+/*Função que converte o valor contido na string comando*/
+/*em um valor dentro da escala PWM (0, 254)*/
+void convertPercentPWM(){
+  if(comando.substring(0,4) == "VEL "){
+    int velocidadePorcentagem = comando.substring(4,7).toInt();
+    velocidadeMotorPWM = (velocidadePorcentagem*valorMaximoPWM)/100;
+  }
+}
+
+/*Função que define o funcionamento do motor CC*/
+/*comando = VENT* -> motor opera como ventilador (girar sentido horário)*/
+/*comando = EXAUST* -> motor opera como exaustor (girar sentido anti-horário)*/
+/*comando = PARA* -> motor parado*/
+
+void maqEstadosMotor(){
+  if(comandoExecut == "PARA*"){
+    /*Motor parado*/
+    estadoMotor = 0;
+  }
+  if((estadoMotor == 0) && (comandoExecut == "VENT*")){
+    /*motor que estava parado deve operar como ventilador*/
+    estadoMotor = 1;
+    comandoExecut = "";
+  }
+  if((estadoMotor == 0) && (comandoExecut == "EXAUST*")){
+    /*motor que estava parado deve operar como exaustor*/
+    estadoMotor = 2;
+    comandoExecut = "";
+  }
+  if((estadoMotor == 1) && (comandoExecut == "VENT*")){
+    /*continuar operando como ventilador*/
+    estadoMotor = 1;
+    comandoExecut = "";
+  }
+  if((estadoMotor == 2) && (comandoExecut == "EXAUST*")){
+    /*contnuar operando como exaustor*/
+    estadoMotor = 2;
+    comandoExecut = "";
+  }
+  if((estadoMotor == 1 || estadoMotor == 3) && (comandoExecut == "EXAUST*")){
+    /*motor que estava operando como ventilador deve operar como exaustor*/
+    /*Freando o motor*/
+    estadoMotor = 3;
+    /*Mudar sentido de rotação apenas apos parar de girar*/
+    if(velocidadeEstimadaRPM == 0){
+      estadoMotor = 2;
+    }
+    /*Caso não tenha parado deve continuar freando*/
+    if(velocidadeEstimadaRPM > 0){
+      estadoMotor = 3;
+    }
+  }
+  if((estadoMotor == 2 || estadoMotor == 3) && (comandoExecut == "VENT*")){
+    /*motor que estava operando como exaustor deve operar como ventilador*/
+    /*Freando o motor*/
+    estadoMotor = 3;
+    /*Mudar sentido de rotação apenas apos parar de girar*/
+    if(velocidadeEstimadaRPM == 0){
+      estadoMotor = 1;
+    }
+    /*Caso não tenha parado deve continuar freando*/
+    if(velocidadeEstimadaRPM > 0){
+      estadoMotor = 3;
+    }
+  }
+}
+
+/*Função que habilita o sentido de rotação de acordo com o estado do motor*/
+void rotacaoMotor(){
+  if(estadoMotor == 0){
+    /*motor desligado*/
+    digitalWrite(pinEntrada1PonteH, LOW);
+    digitalWrite(pinEntrada2PonteH, LOW);
+    velocidadeMotorPWM = 0;/*zerar velocidade*/
+    analogWrite(pinPWM, velocidadeMotorPWM);
+  }
+  if(estadoMotor == 1){
+    /*Motor como ventilador*/
+    digitalWrite(pinEntrada1PonteH, LOW);
+    digitalWrite(pinEntrada2PonteH, HIGH);
+    /*Deve receber parâmetro de velocidade do comando VEL XXX**/
+    analogWrite(pinPWM, velocidadeMotorPWM);
+  }
+  if(estadoMotor == 2){
+    /*Motor como exaustor*/
+    digitalWrite(pinEntrada1PonteH, HIGH);
+    digitalWrite(pinEntrada2PonteH, LOW);
+    /*Deve receber parâmetro de velocidade do comando VEL XXX**/
+    analogWrite(pinPWM, velocidadeMotorPWM);
+  }
+  if(estadoMotor == 3){
+    /*Frear motor*/
+    digitalWrite(pinEntrada1PonteH, HIGH);
+    digitalWrite(pinEntrada2PonteH, HIGH);
+    analogWrite(pinPWM, 0);
+  }
+}
+
+void setup()
+{
+  pinMode(pinPWM, OUTPUT);
+  pinMode(pinEncoder, INPUT);
+  pinMode(pinEntrada1PonteH, OUTPUT);
+  pinMode(pinEntrada2PonteH, OUTPUT);
+  //digitalWrite(pinEntrada1PonteH, LOW);
+  //digitalWrite(pinEntrada2PonteH, LOW);
+  Serial.begin(9600);
+  cli();
+  configuracao_Timer0();
+  sei();
+  /*Habilita interrupcao do encoder*/
+  attachInterrupt(digitalPinToInterrupt(pinEncoder), estimaVelocidade, RISING);
+}
+
+void loop()
+{
+  _delay_ms(1);
+  LerComando();
+  DecodComando();
+  maqEstadosMotor();
+  rotacaoMotor();
+  convertPercentPWM();
+  
+  // Habilita a interrupcao do encoder em um tempo menor de 200ms
+  if(counter < verificaVelocidade){
+    attachInterrupt(digitalPinToInterrupt(pinEncoder), estimaVelocidade, RISING);
+  }
+  /* counter = 125 -> 1s */
+  /* counter = 25 -> 0.2s */
+  /* Durante 0.2s segundo incremento passagemDaPa */
+  /* passageDaPa indica o número de voltas foram dadas em 0.2s */
+  /* Multiplicar por 5 para estimar a rotação em 1s */
+  if(counter >= verificaVelocidade){
+    detachInterrupt(digitalPinToInterrupt(pinEncoder)); // Desabilita interrupcao para calcular a velocidade
+    velocidadeEstimadaRPM = (60*1000/pulsosPorVolta)/(verificaVelocidade*8) * passagemDaPa;
+    passagemDaPa = 0;
+    attachInterrupt(digitalPinToInterrupt(pinEncoder), estimaVelocidade, RISING); // Habilita interrupcoes apos calculo da velocidade
+    counter = 0;
+    Serial.println(velocidadeEstimadaRPM);
+  }
+  Serial.println(estadoMotor);
+  Serial.println(velocidadeEstimadaRPM);
+}

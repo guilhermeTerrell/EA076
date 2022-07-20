@@ -1,0 +1,80 @@
+// Wellter Mompean Sozin - 188625
+// Guilherme Augusto Amorim Terrell - 168899
+
+// Define Variáveis
+char carac = '*';
+String comando = "";
+int velocidade = 0;
+
+
+void setup()
+{
+  // Inicializa a comunicação UART
+  Serial.begin(9600);
+}
+
+
+void loop()
+{
+  // Lê o comando
+  LerComando();
+  // Decodifica o comando
+  DecodComando();
+}
+
+
+// Função: Lê caractere e concatena no comando
+void LerComando()
+{
+  carac = Serial.read();			// Lê caractere
+  if (carac!=-1){					// Se for digitado algo, concatena no comando
+    comando.concat(carac);
+  }
+}
+
+
+
+// Função: Decodifica o comando
+void DecodComando()
+{
+  if (comando.indexOf('*')!=-1){	// Verifica se o caractere de fim de comando está presente
+    // Interpretação dos comandos
+    if (comando=="RETVEL*"){
+      Serial.println("VEL: X RPM");
+    }
+    else if (comando=="PARA*"){
+      Serial.println("OK PARA");
+    }
+    else if (comando=="EXAUST*"){
+      Serial.println("OK EXAUST");
+    }
+    else if (comando=="VENT*"){
+      Serial.println("OK VENT");
+    }
+    else if (comando.substring(0,4)=="VEL "){
+      // Comando = "VEL *"
+      if (comando.substring(4,5)=="*"){
+        Serial.println("ERRO: PARAMETRO AUSENTE");
+        velocidade = -1;
+      }
+      // Comando = "VEL xx*" ou "VEL x*"
+      else if (comando.substring(4).length()!=4){
+        Serial.println("ERRO: COMANDO INEXISTENTE");
+      }
+      // Comando = "VEL xxx*"
+      else{
+        velocidade = comando.substring(4,7).toInt();
+        if ((velocidade>=0) && (velocidade<=100)){		
+        	Serial.println("OK VEL " + comando.substring(4,7) + "%");
+      	}
+      	else{
+        	Serial.println("ERRO: PARAMETRO INCORRETO");
+      	}
+      }
+    }
+    else{
+      Serial.println("ERRO: COMANDO INEXISTENTE");		// Comando inexistente
+    }
+    comando="";											// Reinicializa para receber um novo comando
+  }
+}

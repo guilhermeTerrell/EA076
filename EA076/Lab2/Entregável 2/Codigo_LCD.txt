@@ -1,0 +1,39 @@
+/*Projeto 2 (parte 3) -> LCD*/
+/*Welter Mompeam Sozim              RA: 188625*/
+/*Guilherme Augusto Amorim Terrell  RA: 168899*/
+#include <LiquidCrystal.h>
+
+#define pinRS 8
+#define pinEnable 4
+#define pinD4 10
+#define pinD5 11
+#define pinD6 12
+#define pinD7 13
+
+/*LCD -> 2 linhas de 16 caracteres*/
+LiquidCrystal lcd(pinRS, pinEnable, pinD4, pinD5, pinD6, pinD7);
+
+void escreveLCD(int velocidade){
+  if(String(velocidade).length() <= 4){
+    lcd.setCursor(0,0);
+    lcd.print(String(velocidade));
+    lcd.setCursor(13,0);
+    lcd.print("RPM");
+    lcd.setCursor(0,1);
+    lcd.print("  (ESTIMATIVA)  ");
+  }
+  else{
+    lcd.setCursor(0,0);
+    lcd.print("ERROR");
+  }
+}
+
+void setup(){
+  lcd.begin(16,2);
+  lcd.clear();
+}
+
+void loop(){
+  int vel = 18;
+  escreveLCD(vel);
+}

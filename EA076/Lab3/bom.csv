@@ -1,0 +1,13 @@
+﻿Nome,Quantidade,Componente
+"U1",1," Arduino Uno R3"
+"UPonte H",1," Acionador de motor de ponte H"
+"PV_externa",1,"7.4 , 2.7  Fonte de energia"
+"MMotor CC com encoder",1,"1621 Motor CC com codificador"
+"R1, R2",2,"1 kΩ Resistor"
+"UDisplay LCD",1," LCD 16 x 2"
+"RpotPot1",1,"250 kΩ Potenciômetro"
+"R3",1,"220 Ω Resistor"
+"UExpansor de portas I2C",1," 8-port I2C expander"
+"UBluetooth HC-05",1," Módulo Wifi (ESP8266)"
+"R4",1,"2 kΩ Resistor"
+"Digit5461AS_Digito3, Digit5461AS_Digito2, Digit5461AS_Digito1, Digit5461AS_Digito00",4,"Catódica Visor de sete segmentos"

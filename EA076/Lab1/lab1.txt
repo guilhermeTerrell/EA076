@@ -1,0 +1,466 @@
+#define pinLDR A0
+#define pinLedVermelhoCarro A1
+#define pinLedAmareloCarro A2
+#define pinLedVerdeCarro A3
+#define pinLedVermelhoPed A4
+#define pinLedVerdePed A5
+#define pinBotao 6
+#define displayCarro 5
+#define displayPed 4
+
+int estado = 0;
+int valorLDR = 0;
+int counter = 0;
+int counter_dia = 0;
+int counter_travessia = 0;
+int displayCarroOn = 0;
+
+volatile unsigned int dia = 1;
+volatile unsigned int travessiaPedestre = 0;
+volatile int pinInput1 = 8;
+volatile int pinInput2 = 9;
+volatile int pinInput3 = 10;
+volatile int pinInput4 = 11;
+
+
+void desligaLeds(){
+  analogWrite(pinLedVermelhoCarro, 0);
+  analogWrite(pinLedAmareloCarro, 0);
+  analogWrite(pinLedVerdeCarro, 0);
+  analogWrite(pinLedVerdePed, 0);
+  analogWrite(pinLedVermelhoPed, 0);
+}
+
+void configuracao_Timer0(){
+  /////////////////////////////////////////////////////////////////////////////////////////////////////////////
+  // Configuracao Temporizador 0 (8 bits) para gerar interrupcoes periodicas a cada 8ms no modo Clear Timer on Compare Match (CTC)
+  // Relogio = 16e6 Hz
+  // Prescaler = 1024
+  // Faixa = 125 (contagem de 0 a OCR0A = 124)
+  // Intervalo entre interrupcoes: (Prescaler/Relogio)*Faixa = (64/16e6)*(124+1) = 0.008s
+  
+  // TCCR0A – Timer/Counter Control Register A
+  // COM0A1 COM0A0 COM0B1 COM0B0 – – WGM01 WGM00
+  // 0      0      0      0          1     0
+  TCCR0A = 0x02;
+
+  // OCR0A – Output Compare Register A
+  OCR0A = 124;
+
+  // TIMSK0 – Timer/Counter Interrupt Mask Register
+  // – – – – – OCIE0B OCIE0A TOIE0
+  // – – – – – 0      1      0
+  TIMSK0 = 0x02;
+  
+  // TCCR0B – Timer/Counter Control Register B
+  // FOC0A FOC0B – – WGM02 CS02 CS01 CS0
+  // 0     0         0     1    0    1
+  TCCR0B = 0x05;
+  /////////////////////////////////////////////////////////////////////////////////////////////////////////////
+}
+
+// Rotina de servico de interrupcao do temporizador0
+ISR(TIMER0_COMPA_vect){
+  // Insira aqui o codigo a s do temporizadorer executado pela interrupcao periodica
+  counter++;
+  valorLDR = analogRead(pinLDR);
+  if((valorLDR >= 100) && (dia == 0)){
+    counter++;
+    if(counter > 125){
+       dia = 0;
+      counter = 0;
+    }
+  }
+  if((valorLDR < 100) && (dia == 0)){
+    counter++;
+    if(counter > 125){
+       dia = 1;
+       counter = 0;
+    }
+  }
+  if((valorLDR >= 100) && (dia == 1)){
+    counter++;
+    if(counter > 125){
+       dia = 0;
+       counter = 0;
+    }
+  }
+  if((dia == 1) && (digitalRead(pinBotao) == HIGH)){
+    travessiaPedestre = 1;
+  }
+  if((dia == 1) && (travessiaPedestre == 1)){
+    counter_travessia++;
+    if(counter_travessia >= 1513){
+      counter_travessia = 0;
+      counter = 0;
+      travessiaPedestre = 0;
+    }
+  }
+  if(counter_travessia%2 == 1){
+    displayCarroOn = 1;
+  }
+  if(counter_travessia%2 == 0){
+    displayCarroOn = 0;
+  }
+}
+
+void setup(){
+  pinMode(pinLDR, INPUT);
+  pinMode(pinBotao, INPUT);
+  pinMode(pinLedVermelhoCarro, OUTPUT);
+  pinMode(pinLedAmareloCarro, OUTPUT);
+  pinMode(pinLedVerdeCarro, OUTPUT);
+  pinMode(pinLedVermelhoPed, OUTPUT);
+  pinMode(pinLedVerdePed, OUTPUT);
+  pinMode(displayCarro, OUTPUT);
+  pinMode(displayPed, OUTPUT);
+  pinMode(pinInput1, OUTPUT);
+  pinMode(pinInput2, OUTPUT);
+  pinMode(pinInput3, OUTPUT);
+  pinMode(pinInput4, OUTPUT);
+  /*Displays e LEDs iniciam desligados*/
+  analogWrite(pinLedVermelhoCarro, 0);
+  analogWrite(pinLedAmareloCarro, 0);
+  analogWrite(pinLedVerdeCarro, 0);
+  analogWrite(pinLedVermelhoPed, 0);
+  analogWrite(pinLedVerdePed, 0);
+  digitalWrite(displayCarro, HIGH);
+  digitalWrite(displayPed, HIGH);
+  cli();
+  configuracao_Timer0();
+  sei();
+  Serial.begin(9600);
+}
+
+void escreveDisplay(int tempo){
+  switch (tempo){
+    case 0:
+      digitalWrite(pinInput1, LOW);
+      digitalWrite(pinInput2, LOW);
+      digitalWrite(pinInput3, LOW);
+      digitalWrite(pinInput4, LOW);
+    break;
+    
+    case 1:
+      digitalWrite(pinInput1, HIGH);
+      digitalWrite(pinInput2, LOW);
+      digitalWrite(pinInput3, LOW);
+      digitalWrite(pinInput4, LOW);
+    break;
+    
+    case 2:
+      digitalWrite(pinInput1, LOW);
+      digitalWrite(pinInput2, HIGH);
+      digitalWrite(pinInput3, LOW);
+      digitalWrite(pinInput4, LOW);
+    break;
+    
+    case 3:
+      digitalWrite(pinInput1, HIGH);
+      digitalWrite(pinInput2, HIGH);
+      digitalWrite(pinInput3, LOW);
+      digitalWrite(pinInput4, LOW);
+    break;
+    
+    case 4:
+      digitalWrite(pinInput1, LOW);
+      digitalWrite(pinInput2, LOW);
+      digitalWrite(pinInput3, HIGH);
+      digitalWrite(pinInput4, LOW);
+    break;
+    
+    case 5:
+      digitalWrite(pinInput1, HIGH);
+      digitalWrite(pinInput2, LOW);
+      digitalWrite(pinInput3, HIGH);
+      digitalWrite(pinInput4, LOW);
+    break;
+    
+    case 6:
+      digitalWrite(pinInput1, LOW);
+      digitalWrite(pinInput2, HIGH);
+      digitalWrite(pinInput3, HIGH);
+      digitalWrite(pinInput4, LOW);
+    break;
+    
+    case 7:
+      digitalWrite(pinInput1, HIGH);
+      digitalWrite(pinInput2, HIGH);
+      digitalWrite(pinInput3, HIGH);
+      digitalWrite(pinInput4, LOW);
+    break;
+    
+    case 8:
+      digitalWrite(pinInput1, LOW);
+      digitalWrite(pinInput2, LOW);
+      digitalWrite(pinInput3, LOW);
+      digitalWrite(pinInput4, HIGH);
+    break;
+    
+    case 9:
+      digitalWrite(pinInput1, HIGH);
+      digitalWrite(pinInput2, LOW);
+      digitalWrite(pinInput3, LOW);
+      digitalWrite(pinInput4, HIGH);
+    break;
+  }
+}
+
+void maquinaEstados(int estado){
+  switch (estado){
+    case 0:
+      /*Inicia com verde para carros e vermelho para pedestre*/
+      /*Display carros desligado*/
+      /*Display pedestres desligado*/
+      analogWrite(pinLedVermelhoCarro, 0);
+      analogWrite(pinLedAmareloCarro, 0);
+      analogWrite(pinLedVerdeCarro, 255);
+      analogWrite(pinLedVermelhoPed, 255);
+      analogWrite(pinLedVerdePed, 0);
+      digitalWrite(displayCarro, HIGH);
+      digitalWrite(displayPed, HIGH);
+    break;
+  
+    case 1:
+      /*Amarelo para carros aceso*/
+      /*Vermelho para pedestres aceso*/
+      analogWrite(pinLedVermelhoCarro, 0);
+      analogWrite(pinLedAmareloCarro, 255);
+      analogWrite(pinLedVerdeCarro, 0);
+      analogWrite(pinLedVermelhoPed, 255);
+      analogWrite(pinLedVerdePed, 0);
+    break;
+    
+    case 2:
+      /*Vermelho para carros aceso*/
+      /*Verde para pedestres aceso*/
+      /*Display carros ligado contando o tempo*/
+      /*Display pedestre ligado contando o tempo*/
+      analogWrite(pinLedVerdeCarro, 0);
+  	  analogWrite(pinLedVermelhoCarro, 255);
+  	  analogWrite(pinLedAmareloCarro, 0);
+  	  analogWrite(pinLedVerdePed, 255);
+  	  analogWrite(pinLedVermelhoPed, 0);
+    break;
+    
+  case 3:
+      /*Vermelho para carros aceso*/
+      /*Vermelho para pedestres aceso*/
+      /*Display carros ligado contando o tempo*/
+      /*Display pedestre ligado contando o tempo*/
+      analogWrite(pinLedVerdeCarro, 0);
+  	  analogWrite(pinLedVermelhoCarro, 255);
+  	  analogWrite(pinLedAmareloCarro, 0);
+  	  analogWrite(pinLedVerdePed, 0);
+  	  analogWrite(pinLedVermelhoPed, 255);
+    break;
+    
+  case 4:
+      /*Vermelho para carros aceso*/
+      /*Vermelho para pedestres apagado*/
+      /*Display carros ligado contando o tempo*/
+      /*Display pedestre ligado contando o tempo*/
+      analogWrite(pinLedVerdeCarro, 0);
+  	  analogWrite(pinLedVermelhoCarro, 255);
+  	  analogWrite(pinLedAmareloCarro, 0);
+  	  analogWrite(pinLedVerdePed, 0);
+  	  analogWrite(pinLedVermelhoPed, 0);
+    break;
+    
+  case 5:
+      /*Amarelo para carros aceso*/
+      /*Vermelho para pedestres aceso*/
+      /*Display carros desligado*/
+      /*Display pedestre desligado*/
+      analogWrite(pinLedVerdeCarro, 0);
+  	  analogWrite(pinLedVermelhoCarro, 0);
+  	  analogWrite(pinLedAmareloCarro, 255);
+  	  analogWrite(pinLedVerdePed, 0);
+  	  analogWrite(pinLedVermelhoPed, 255);
+      digitalWrite(displayCarro, HIGH);
+      digitalWrite(displayPed, HIGH);
+      travessiaPedestre = 0;
+      counter_travessia = 0;
+    break;
+    
+  case 6:
+      /*Amarelo para carros apagado*/
+      /*Vermelho para pedestres apagado*/
+      /*Display carros desligado*/
+      /*Display pedestre desligado*/
+      analogWrite(pinLedVerdeCarro, 0);
+  	  analogWrite(pinLedVermelhoCarro, 0);
+  	  analogWrite(pinLedAmareloCarro, 0);
+  	  analogWrite(pinLedVerdePed, 0);
+  	  analogWrite(pinLedVermelhoPed, 0);
+      digitalWrite(displayCarro, HIGH);
+      digitalWrite(displayPed, HIGH);
+      travessiaPedestre = 0;
+      counter_travessia = 0;
+    break;
+  }
+}
+
+void loop(){
+  delay(1);
+  if(dia == 0){
+    if(counter < 63){
+      maquinaEstados(5);
+    }
+    if((counter >= 63) && (counter < 125)){
+      maquinaEstados(6);
+    }
+    if(counter >= 125){
+      counter = 0;
+    }
+  }
+  if((dia == 1) && (travessiaPedestre == 0)){
+    maquinaEstados(0);
+  }
+  if((dia == 1) && (travessiaPedestre == 1)){
+    /*Esperar 100ms antes de acender o amarelo para carros*/
+    if((counter_travessia >= 13) && (counter_travessia < 263)){
+      maquinaEstados(1);
+    }
+    if((counter_travessia >= 263) && (counter_travessia < 388)){
+      /*388 - 263 = 125 -> 1 segundos*/
+      maquinaEstados(2);
+      if(displayCarroOn == 1){
+        digitalWrite(displayPed, HIGH);
+        digitalWrite(displayCarro, LOW);
+        escreveDisplay(9);
+      }
+      if(displayCarroOn == 0){
+        digitalWrite(displayCarro, HIGH);
+        digitalWrite(displayPed, LOW);
+        escreveDisplay(5);
+      }
+    }
+    if((counter_travessia >= 388) && (counter_travessia < 513)){
+      /*513 - 263 = 250 -> 2 segundos*/
+      maquinaEstados(2);
+      if(displayCarroOn == 1){
+        digitalWrite(displayPed, HIGH);
+        digitalWrite(displayCarro, LOW);
+        escreveDisplay(8);
+      }
+      if(displayCarroOn == 0){
+        digitalWrite(displayCarro, HIGH);
+        digitalWrite(displayPed, LOW);
+        escreveDisplay(4);
+      }
+    }
+    if((counter_travessia >= 513) && (counter_travessia < 638)){
+      /*638 - 263 = 375 -> 3 segundos*/
+      maquinaEstados(2);
+      if(displayCarroOn == 1){
+        digitalWrite(displayPed, HIGH);
+        digitalWrite(displayCarro, LOW);
+        escreveDisplay(7);
+      }
+      if(displayCarroOn == 0){
+        digitalWrite(displayCarro, HIGH);
+        digitalWrite(displayPed, LOW);
+        escreveDisplay(3);
+      }
+    }
+    if((counter_travessia >= 638) && (counter_travessia < 763)){
+      /*763 - 263 = 500 -> 4 segundos*/
+      maquinaEstados(2);
+      if(displayCarroOn == 1){
+        digitalWrite(displayPed, HIGH);
+        digitalWrite(displayCarro, LOW);
+        escreveDisplay(6);
+      }
+      if(displayCarroOn == 0){
+        digitalWrite(displayCarro, HIGH);
+        digitalWrite(displayPed, LOW);
+        escreveDisplay(2);
+      }
+    }
+    if((counter_travessia >= 763) && (counter_travessia < 888)){
+      /*888 - 263 = 625 -> 5 segundos*/
+      maquinaEstados(2);
+      if(displayCarroOn == 1){
+        digitalWrite(displayPed, HIGH);
+        digitalWrite(displayCarro, LOW);
+        escreveDisplay(5);
+      }
+      if(displayCarroOn == 0){
+        digitalWrite(displayCarro, HIGH);
+        digitalWrite(displayPed, LOW);
+        escreveDisplay(1);
+      }
+    }
+    if((counter_travessia >= 888) && (counter_travessia < 1013)){
+      /*1013 - 263 = 750 -> 6 segundos*/
+      maquinaEstados(3);
+      if(displayCarroOn == 1){
+        digitalWrite(displayPed, HIGH);
+        digitalWrite(displayCarro, LOW);
+        escreveDisplay(4);
+      }
+      if(displayCarroOn == 0){
+        digitalWrite(displayCarro, HIGH);
+        digitalWrite(displayPed, LOW);
+        escreveDisplay(0);
+      }
+    }
+    if((counter_travessia >= 1013) && (counter_travessia < 1138)){
+      /*1138 - 263 = 875 -> 7 segundos*/
+      maquinaEstados(4);
+      if(displayCarroOn == 1){
+        digitalWrite(displayPed, HIGH);
+        digitalWrite(displayCarro, LOW);
+        escreveDisplay(3);
+      }
+      if(displayCarroOn == 0){
+        digitalWrite(displayCarro, HIGH);
+        digitalWrite(displayPed, HIGH);
+        escreveDisplay(0);
+      }
+    }
+    if((counter_travessia >= 1138) && (counter_travessia < 1263)){
+      /*1138 - 263 = 1000 -> 8 segundos*/
+      maquinaEstados(3);
+      if(displayCarroOn == 1){
+        digitalWrite(displayPed, HIGH);
+        digitalWrite(displayCarro, LOW);
+        escreveDisplay(2);
+      }
+      if(displayCarroOn == 0){
+        digitalWrite(displayCarro, HIGH);
+        digitalWrite(displayPed, LOW);
+        escreveDisplay(0);
+      }
+    }
+    if((counter_travessia >= 1263) && (counter_travessia < 1388)){
+      /*1388 - 263 = 625 -> 9 segundos*/
+      maquinaEstados(4);
+      if(displayCarroOn == 1){
+        digitalWrite(displayPed, HIGH);
+        digitalWrite(displayCarro, LOW);
+        escreveDisplay(1);
+      }
+      if(displayCarroOn == 0){
+        digitalWrite(displayCarro, HIGH);
+        digitalWrite(displayPed, HIGH);
+        escreveDisplay(0);
+      }
+    }
+    if((counter_travessia >= 1388) && (counter_travessia < 1513)){
+      /*1513 - 263 = 1250 -> 10 segundos*/
+      maquinaEstados(3);
+      if(displayCarroOn == 1){
+        digitalWrite(displayPed, HIGH);
+        digitalWrite(displayCarro, LOW);
+        escreveDisplay(0);
+      }
+      if(displayCarroOn == 0){
+        digitalWrite(displayCarro, HIGH);
+        digitalWrite(displayPed, LOW);
+        escreveDisplay(0);
+      }
+    }
+  }
+}
